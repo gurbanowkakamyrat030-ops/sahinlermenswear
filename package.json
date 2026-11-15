@@ -1,0 +1,1840 @@
+{
+  "name": "sahinler-menswear-store",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@gradio/client": "^1.8.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.0"
+  }
+}
+
+import express from "express";
+import cors from "cors";
+import { Client, handle_file } from "@gradio/client";
+
+const app = express();
+app.use(cors());
+app.use(express.json({ limit: "20mb" }));
+app.use(express.static("."));
+
+app.post("/api/tryon", async (req, res) => {
+  try {
+    const { personImageBase64, garmentImageUrl, garmentDescription } = req.body;
+
+    if (!process.env.HF_TOKEN) {
+      return res.status(500).json({
+        error: "Render panelinde HF_TOKEN anahtarı tanımlı değil. Lütfen Environment Variables bölümünden ekleyin."
+      });
+    }
+
+    if (!personImageBase64 || !garmentImageUrl) {
+      return res.status(400).json({ error: "Müşteri fotoğrafı ve ürün görseli gerekli." });
+    }
+
+    const matches = personImageBase64.match(/^data:(.+);base64,(.+)$/);
+    if (!matches) {
+      return res.status(400).json({ error: "Geçersiz fotoğraf formatı." });
+    }
+
+    const mimeType = matches[1];
+    const buffer = Buffer.from(matches[2], "base64");
+    const personBlob = new Blob([buffer], { type: mimeType });
+
+    const hfClient = await Client.connect("yisol/IDM-VTON", {
+      hf_token: process.env.HF_TOKEN
+    });
+
+    const result = await hfClient.predict("/tryon", [
+      { background: handle_file(personBlob), layers: [], composite: null },
+      handle_file(garmentImageUrl),
+      garmentDescription || "Luxury menswear fashion garment",
+      true,
+      true,
+      30,
+      42
+    ]);
+
+    const outputImage = result?.data?.[0]?.url || result?.data?.[0];
+    if (!outputImage) {
+      return res.status(502).json({ error: "Yapay zeka görsel üretemedi, lütfen tekrar deneyin." });
+    }
+
+    res.json({ resultUrl: outputImage });
+  } catch (err) {
+    console.error("AI Try-On Hatası:", err);
+    res.status(500).json({
+      error: "AI sunucusu şu an yoğun veya günlük ücretsiz kota doldu. Biraz sonra tekrar deneyin."
+    });
+  }
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Şahinler Menswear sunucusu ${PORT} portunda aktif.`);
+});
+
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+  <title>ŞAHİNLER MENSWEAR | Lüks Erkek Giyim & AI Sanal Kabin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #09090b;
+      --surface: #121216;
+      --surface-2: #1a1a20;
+      --border: #26262e;
+      --text: #fafafa;
+      --text-soft: #a1a1aa;
+      --text-muted: #71717a;
+      --gold: #d4af37;
+      --gold-soft: #f3e5ab;
+      --gold-grad: linear-gradient(135deg, #f3e5ab 0%, #d4af37 55%, #a67c1e 100%);
+      --green: #10b981;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html {
+      font-size: 16px;
+      scroll-behavior: smooth;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      line-height: 1.5;
+      padding-bottom: 96px;
+      overflow-x: hidden;
+    }
+
+    .top-announcement {
+      background: #14120c;
+      border-bottom: 1px solid rgba(212, 175, 55, 0.25);
+      color: var(--gold-soft);
+      text-align: center;
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 9px 12px;
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      background: rgba(9, 9, 11, 0.94);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 16px;
+    }
+
+    .header-row {
+      max-width: 1120px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .logo-area { cursor: pointer; }
+
+    .logo-main {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.55rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      line-height: 1;
+      background: var(--gold-grad);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .logo-sub {
+      font-size: 0.66rem;
+      letter-spacing: 2.5px;
+      color: var(--text-soft);
+      text-transform: uppercase;
+      margin-top: 3px;
+    }
+
+    .header-btns {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .hdr-btn {
+      height: 44px;
+      padding: 0 12px;
+      border-radius: 12px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 0.86rem;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      text-decoration: none;
+    }
+
+    .hdr-btn.gold {
+      background: var(--gold-grad);
+      color: #09090b;
+      border: none;
+    }
+
+    .count-pill {
+      background: #09090b;
+      color: var(--gold-soft);
+      font-size: 0.76rem;
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 999px;
+    }
+
+    .main-wrap {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+
+    .hero-banner {
+      position: relative;
+      border-radius: 20px;
+      overflow: hidden;
+      min-height: 350px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 24px 20px;
+      margin-bottom: 20px;
+      border: 1px solid var(--border);
+      background: #141419;
+    }
+
+    .hero-banner img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0.52;
+    }
+
+    .hero-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(9,9,11,0.15) 0%, rgba(9,9,11,0.95) 88%);
+    }
+
+    .hero-content { position: relative; z-index: 2; }
+
+    .hero-kicker {
+      display: inline-block;
+      font-size: 0.74rem;
+      font-weight: 800;
+      letter-spacing: 1.8px;
+      text-transform: uppercase;
+      color: var(--gold-soft);
+      margin-bottom: 8px;
+    }
+
+    .hero-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 2.05rem;
+      font-weight: 700;
+      line-height: 1.12;
+      margin-bottom: 10px;
+      color: #fff;
+    }
+
+    .hero-text {
+      font-size: 0.94rem;
+      color: #d4d4d8;
+      margin-bottom: 18px;
+      max-width: 500px;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .hero-btn {
+      height: 48px;
+      padding: 0 20px;
+      border-radius: 12px;
+      background: var(--gold-grad);
+      color: #09090b;
+      border: none;
+      font-size: 0.94rem;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .hero-ig-btn {
+      height: 48px;
+      padding: 0 18px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      color: #fff;
+      font-size: 0.9rem;
+      font-weight: 700;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .controls-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    @media (min-width: 640px) {
+      .controls-stack { flex-direction: row; }
+    }
+
+    .search-field {
+      flex: 1;
+      height: 50px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 0 16px;
+      color: var(--text);
+      font-size: 1rem;
+      outline: none;
+    }
+
+    .search-field:focus { border-color: var(--gold); }
+
+    .sort-field {
+      height: 50px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 0 14px;
+      color: var(--text);
+      font-size: 0.92rem;
+      font-weight: 600;
+      outline: none;
+    }
+
+    .cat-scroller {
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      padding: 4px 0 18px;
+      scrollbar-width: none;
+    }
+    .cat-scroller::-webkit-scrollbar { display: none; }
+
+    .cat-pill {
+      height: 44px;
+      padding: 0 18px;
+      border-radius: 999px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text-soft);
+      font-size: 0.92rem;
+      font-weight: 700;
+      white-space: nowrap;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .cat-pill.active {
+      background: var(--gold-grad);
+      color: #09090b;
+      border-color: transparent;
+    }
+
+    .catalog-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .catalog-header h2 { font-size: 1.35rem; font-weight: 800; }
+    .catalog-header span { font-size: 0.9rem; color: var(--text-soft); font-weight: 600; }
+
+    .products-feed {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 24px;
+    }
+
+    @media (min-width: 680px) {
+      .products-feed { grid-template-columns: repeat(2, 1fr); gap: 22px; }
+    }
+
+    @media (min-width: 1024px) {
+      .products-feed { grid-template-columns: repeat(3, 1fr); gap: 24px; }
+    }
+
+    .item-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .item-img-box {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 4 / 4.4;
+      background: #16161c;
+      overflow: hidden;
+      cursor: pointer;
+    }
+
+    .item-img-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .item-tag {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      background: rgba(9, 9, 11, 0.85);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(212, 175, 55, 0.45);
+      color: var(--gold-soft);
+      font-size: 0.75rem;
+      font-weight: 800;
+      padding: 6px 12px;
+      border-radius: 8px;
+      text-transform: uppercase;
+    }
+
+    .ai-badge {
+      position: absolute;
+      bottom: 14px;
+      left: 14px;
+      background: rgba(16, 185, 129, 0.24);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(16, 185, 129, 0.6);
+      color: #a7f3d0;
+      font-size: 0.76rem;
+      font-weight: 800;
+      padding: 6px 11px;
+      border-radius: 8px;
+    }
+
+    .item-fav {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: rgba(9, 9, 11, 0.78);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      color: #fff;
+      font-size: 1.25rem;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+    }
+
+    .item-fav.active { color: #f43f5e; border-color: rgba(244, 63, 94, 0.5); }
+
+    .item-info {
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+    }
+
+    .item-cat-line {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .item-cat {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--gold);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .item-fit-tag { font-size: 0.8rem; color: var(--text-soft); }
+
+    .item-name {
+      font-size: 1.16rem;
+      font-weight: 800;
+      color: var(--text);
+      line-height: 1.35;
+      margin-bottom: 10px;
+      cursor: pointer;
+    }
+
+    .item-swatches {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .color-dot {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.25);
+      cursor: pointer;
+    }
+
+    .color-dot.active {
+      border-color: var(--gold-soft);
+      box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--gold);
+    }
+
+    .item-price-box {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin-top: auto;
+      margin-bottom: 14px;
+    }
+
+    .item-price { font-size: 1.3rem; font-weight: 800; color: #fff; }
+    .item-old-price { font-size: 0.95rem; color: var(--text-muted); text-decoration: line-through; }
+
+    .item-action-btn {
+      width: 100%;
+      height: 50px;
+      border-radius: 14px;
+      background: var(--surface-2);
+      border: 1px solid rgba(212, 175, 55, 0.45);
+      color: var(--gold-soft);
+      font-size: 0.96rem;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .item-action-btn:active { background: var(--gold-grad); color: #09090b; }
+
+    /* Mağaza Konum & İletişim Kartı */
+    .store-footer-card {
+      margin-top: 36px;
+      background: var(--surface);
+      border: 1px solid rgba(212, 175, 55, 0.35);
+      border-radius: 20px;
+      padding: 22px 18px;
+    }
+
+    .store-footer-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--gold-soft);
+      margin-bottom: 6px;
+    }
+
+    .store-info-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+      margin-top: 16px;
+    }
+
+    @media (min-width: 720px) {
+      .store-info-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+
+    .store-tile {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .store-tile small {
+      font-size: 0.76rem;
+      font-weight: 800;
+      color: var(--gold);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .store-tile p {
+      font-size: 0.92rem;
+      color: #e4e4e7;
+      line-height: 1.45;
+    }
+
+    .tile-link-btn {
+      height: 42px;
+      border-radius: 10px;
+      background: rgba(212, 175, 55, 0.14);
+      border: 1px solid rgba(212, 175, 55, 0.4);
+      color: var(--gold-soft);
+      font-size: 0.86rem;
+      font-weight: 800;
+      text-decoration: none;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+    }
+
+    .mobile-dock {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 45;
+      background: rgba(14, 14, 18, 0.96);
+      backdrop-filter: blur(18px);
+      border-top: 1px solid var(--border);
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      padding: 8px 6px 12px;
+    }
+
+    .dock-btn {
+      background: none;
+      border: none;
+      color: var(--text-soft);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      padding: 4px 0;
+      text-decoration: none;
+    }
+
+    .dock-btn.active { color: var(--gold-soft); }
+
+    /* Modallar */
+    .modal-wrap {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      background: rgba(0, 0, 0, 0.85);
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+    }
+
+    .modal-wrap.open { display: flex; }
+
+    .modal-panel {
+      background: var(--surface);
+      border-top: 1px solid rgba(212, 175, 55, 0.4);
+      border-radius: 24px 24px 0 0;
+      width: 100%;
+      max-width: 640px;
+      max-height: 94vh;
+      overflow-y: auto;
+      padding: 18px 18px 34px;
+    }
+
+    .modal-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 14px;
+      margin-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .modal-close {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: #fff;
+      font-size: 1.4rem;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+    }
+
+    .detail-photo {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 4 / 4.2;
+      border-radius: 18px;
+      overflow: hidden;
+      background: #18181f;
+      margin-bottom: 16px;
+    }
+
+    .detail-photo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .ai-tryon-trigger {
+      width: 100%;
+      height: 54px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #064e3b 0%, #047857 100%);
+      border: 1px solid #34d399;
+      color: #ecfdf5;
+      font-size: 0.98rem;
+      font-weight: 800;
+      margin-bottom: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .detail-specs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin: 14px 0 18px;
+    }
+
+    .spec-tile {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      padding: 12px;
+      border-radius: 12px;
+    }
+
+    .spec-tile small { display: block; font-size: 0.75rem; color: var(--text-soft); margin-bottom: 2px; }
+    .spec-tile strong { font-size: 0.9rem; color: #fff; }
+
+    .size-label {
+      font-size: 0.95rem;
+      font-weight: 800;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .size-buttons-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .size-tap-btn {
+      height: 52px;
+      border-radius: 12px;
+      background: var(--surface-2);
+      border: 1.5px solid var(--border);
+      color: #fff;
+      font-size: 1.05rem;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .size-tap-btn.selected {
+      background: var(--gold-grad);
+      color: #09090b;
+      border-color: transparent;
+    }
+
+    .inline-size-finder {
+      background: #151412;
+      border: 1px solid rgba(212, 175, 55, 0.35);
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 18px;
+    }
+
+    .finder-title {
+      font-size: 0.96rem;
+      font-weight: 800;
+      color: var(--gold-soft);
+      margin-bottom: 10px;
+    }
+
+    .finder-inputs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .finder-input-group label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--text-soft);
+      margin-bottom: 5px;
+      font-weight: 600;
+    }
+
+    .finder-input {
+      width: 100%;
+      height: 48px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0 14px;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 700;
+      outline: none;
+    }
+
+    .finder-output {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: rgba(212, 175, 55, 0.12);
+      color: var(--gold-soft);
+      font-size: 0.9rem;
+      font-weight: 700;
+      display: none;
+    }
+
+    .detail-ctas { display: flex; flex-direction: column; gap: 10px; }
+
+    .primary-gold-btn {
+      width: 100%;
+      height: 54px;
+      border-radius: 14px;
+      background: var(--gold-grad);
+      border: none;
+      color: #09090b;
+      font-size: 1.02rem;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .secondary-dark-btn {
+      width: 100%;
+      height: 50px;
+      border-radius: 14px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: #fff;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    /* AI Sanal Kabin Arayüzü */
+    .tryon-preview-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .tryon-slot {
+      aspect-ratio: 3 / 4;
+      border-radius: 14px;
+      background: var(--surface-2);
+      border: 1.5px dashed var(--border);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 10px;
+      position: relative;
+    }
+
+    .tryon-slot img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .tryon-result-box {
+      width: 100%;
+      aspect-ratio: 3 / 4;
+      border-radius: 18px;
+      overflow: hidden;
+      background: #14141a;
+      border: 1.5px solid var(--gold);
+      margin: 14px 0;
+      display: none;
+    }
+
+    .tryon-result-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .spinner-box {
+      display: none;
+      text-align: center;
+      padding: 24px 12px;
+      background: var(--surface-2);
+      border-radius: 16px;
+      margin: 14px 0;
+      border: 1px solid rgba(212, 175, 55, 0.35);
+    }
+
+    .loader-ring {
+      width: 42px;
+      height: 42px;
+      border: 4px solid rgba(212, 175, 55, 0.2);
+      border-top-color: var(--gold);
+      border-radius: 50%;
+      margin: 0 auto 12px;
+      animation: spin 0.9s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Sepet Öğeleri */
+    .cart-row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .cart-row img { width: 68px; height: 78px; border-radius: 12px; object-fit: cover; }
+    .qty-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 4px 8px;
+    }
+    .qty-bar button {
+      width: 30px; height: 30px; background: none; border: none;
+      color: #fff; font-size: 1.15rem; font-weight: 800; cursor: pointer;
+    }
+    .form-box {
+      width: 100%; height: 50px; background: var(--surface-2);
+      border: 1px solid var(--border); border-radius: 12px;
+      padding: 0 14px; color: #fff; font-size: 0.95rem; margin-bottom: 10px; outline: none;
+    }
+    .pay-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+    .pay-choice {
+      height: 46px; border-radius: 12px; background: var(--surface-2);
+      border: 1px solid var(--border); color: var(--text-soft);
+      font-size: 0.88rem; font-weight: 700; display: grid; place-items: center; cursor: pointer;
+    }
+    .pay-choice.active { border-color: var(--gold); color: var(--gold-soft); background: rgba(212, 175, 55, 0.12); }
+    .summary-card { background: var(--surface-2); border-radius: 14px; padding: 14px; margin: 12px 0; font-size: 0.92rem; }
+    .summary-line { display: flex; justify-content: space-between; margin-bottom: 8px; color: var(--text-soft); }
+    .summary-total {
+      display: flex; justify-content: space-between; padding-top: 10px; margin-top: 8px;
+      border-top: 1px solid var(--border); font-size: 1.15rem; font-weight: 800; color: #fff;
+    }
+
+    .toast-msg {
+      position: fixed; top: 76px; left: 50%; transform: translateX(-50%) translateY(-16px);
+      background: #18181f; border: 1px solid var(--gold); color: #fff;
+      padding: 12px 18px; border-radius: 12px; font-size: 0.9rem; font-weight: 700;
+      z-index: 250; opacity: 0; pointer-events: none; transition: 0.25s;
+      width: max-content; max-width: 90vw; text-align: center;
+    }
+    .toast-msg.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+
+  <div class="top-announcement">
+    ŞAHİNLER MENSWEAR — 3.500 ₺ Üzeri Ücretsiz Kargo • Kupon Kodu: SAHINLER10 (%10 İndirim)
+  </div>
+
+  <header>
+    <div class="header-row">
+      <div class="logo-area" onclick="resetCatalog()">
+        <div class="logo-main">ŞAHİNLER</div>
+        <div class="logo-sub">MENSWEAR &amp; AI ATELIER</div>
+      </div>
+      <div class="header-btns">
+        <a class="hdr-btn" href="https://www.instagram.com/sahinlermenswear?cplk=Nmlod3h2ZHdpYnJk" target="_blank" rel="noopener">IG</a>
+        <button class="hdr-btn" onclick="switchView('fav')">♥ <span id="hdrFavCount">0</span></button>
+        <button class="hdr-btn gold" onclick="openCartModal()">Sepet <span class="count-pill" id="hdrCartCount">0</span></button>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-wrap">
+    <section class="hero-banner">
+      <img src="https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=900&q=80" alt="Şahinler Menswear" onerror="handleImgError(this)" />
+      <div class="hero-overlay"></div>
+      <div class="hero-content">
+        <span class="hero-kicker">KÜÇÜKÇEKMECE / İSTANBUL • 2026 KOLEKSİYONU</span>
+        <h1 class="hero-title">ŞAHİNLER MENSWEAR</h1>
+        <p class="hero-text">İtalyan kesim ceketler, hakiki deri dış giyim, ağır kapüşonlular ve yapay zeka ile kendi fotoğrafında canlı kıyafet deneme.</p>
+        <div class="hero-actions">
+          <button class="hero-btn" onclick="document.getElementById('categoryTabs').scrollIntoView()">Koleksiyonu Keşfet</button>
+          <a class="hero-ig-btn" href="https://www.instagram.com/sahinlermenswear?cplk=Nmlod3h2ZHdpYnJk" target="_blank" rel="noopener">@sahinlermenswear</a>
+        </div>
+      </div>
+    </section>
+
+    <div class="controls-stack">
+      <input type="text" id="searchBox" class="search-field" placeholder="Mont, ceket, deri, Nike, loafer ara..." oninput="renderCatalog()" />
+      <select id="sortBox" class="sort-field" onchange="renderCatalog()">
+        <option value="default">Sıralama: Öne Çıkanlar</option>
+        <option value="asc">Fiyat: Düşükten Yükseğe</option>
+        <option value="desc">Fiyat: Yüksekten Düşüğe</option>
+      </select>
+    </div>
+
+    <div class="cat-scroller" id="categoryTabs"></div>
+
+    <div class="catalog-header">
+      <h2 id="currentHeading">Tüm Ürünler</h2>
+      <span id="currentTotalLabel">0 Ürün</span>
+    </div>
+
+    <section class="products-feed" id="productsFeed"></section>
+
+    <!-- Mağaza Konumu ve İletişim Bilgileri -->
+    <section class="store-footer-card" id="storeLocationSection">
+      <h2 class="store-footer-title">Şahinler Menswear — Mağaza &amp; İletişim</h2>
+      <p style="font-size:0.9rem; color:var(--text-soft);">Ürünlerimizi yapay zeka kabinimizde online deneyebilir, WhatsApp hattımızdan sipariş verebilir veya Küçükçekmece mağazamızı ziyaret edebilirsiniz.</p>
+
+      <div class="store-info-grid">
+        <div class="store-tile">
+          <div>
+            <small>📍 Mağaza Adresi</small>
+            <p style="margin-top:6px;">Kartaltepe Mah. Süvari Cad. No: 2B<br/>Küçükçekmece / İstanbul</p>
+          </div>
+          <a class="tile-link-btn" href="https://www.google.com/maps/search/?api=1&query=Kartaltepe+Mahallesi+S%C3%BCvari+Caddesi+No+2B+K%C3%BC%C3%A7%C3%BCk%C3%A7ekmece+%C4%B0stanbul" target="_blank" rel="noopener">Google Haritalarda Aç</a>
+        </div>
+
+        <div class="store-tile">
+          <div>
+            <small>📞 WhatsApp Sipariş &amp; Destek</small>
+            <p style="margin-top:6px;"><strong>+90 552 070 41 21</strong><br/>Hızlı beden danışmanlığı ve kapıda ödeme siparişi</p>
+          </div>
+          <button class="tile-link-btn" onclick="openWhatsAppSupport()">WhatsApp'tan Mesaj Gönder</button>
+        </div>
+
+        <div class="store-tile">
+          <div>
+            <small>📸 Resmi Instagram</small>
+            <p style="margin-top:6px;"><strong>@sahinlermenswear</strong><br/>Yeni sezon kombinler ve günlük stok paylaşımları</p>
+          </div>
+          <a class="tile-link-btn" href="https://www.instagram.com/sahinlermenswear?cplk=Nmlod3h2ZHdpYnJk" target="_blank" rel="noopener">Instagram Sayfasına Git</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <nav class="mobile-dock">
+    <button class="dock-btn active" id="dockShop" onclick="switchView('shop')"><span style="font-size:1.2rem;">◼</span>Vitrin</button>
+    <button class="dock-btn" id="dockFav" onclick="switchView('fav')"><span style="font-size:1.2rem;">♥</span>Favoriler</button>
+    <button class="dock-btn" onclick="openCartModal()"><span style="font-size:1.2rem;">🛍</span>Sepetim</button>
+    <button class="dock-btn" onclick="openWhatsAppSupport()"><span style="font-size:1.2rem;">💬</span>WhatsApp</button>
+  </nav>
+
+  <!-- Ürün Detay Modalı -->
+  <div class="modal-wrap" id="detailModal" onclick="if(event.target===this) closeModal('detailModal')">
+    <div class="modal-panel" id="detailModalContent"></div>
+  </div>
+
+  <!-- Gerçek AI Üstünde Dene Modalı -->
+  <div class="modal-wrap" id="aiTryOnModal" onclick="if(event.target===this) closeModal('aiTryOnModal')">
+    <div class="modal-panel">
+      <div class="modal-top">
+        <div>
+          <h3 style="font-size:1.15rem; font-weight:800;">✦ AI Sanal Kabin (Üstünde Gör)</h3>
+          <small style="color:var(--text-soft); font-size:0.8rem;" id="tryOnProductName"></small>
+        </div>
+        <button class="modal-close" onclick="closeModal('aiTryOnModal')">&times;</button>
+      </div>
+
+      <p style="font-size:0.88rem; color:#d4d4d8; margin-bottom:14px;">
+        Ön kameradan net bir fotoğraf çekin veya galerinizden seçin; yapay zeka seçtiğiniz kıyafeti kumaş dokusu ve gölgeleriyle üzerinize giydirsin.
+      </p>
+
+      <div class="tryon-preview-grid">
+        <div class="tryon-slot" id="userPhotoSlot">
+          <span style="font-size:1.8rem; margin-bottom:6px;">📸</span>
+          <strong style="font-size:0.85rem;">Senin Fotoğrafın</strong>
+          <small style="font-size:0.75rem; color:var(--text-soft);">Önden net duruş önerilir</small>
+        </div>
+        <div class="tryon-slot">
+          <img id="tryOnGarmentPreview" src="" alt="Seçilen Ürün" />
+        </div>
+      </div>
+
+      <input type="file" id="cameraInput" accept="image/*" capture="user" style="display:none;" onchange="handleUserPhotoSelect(event)" />
+      <input type="file" id="galleryInput" accept="image/*" style="display:none;" onchange="handleUserPhotoSelect(event)" />
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;">
+        <button class="secondary-dark-btn" onclick="document.getElementById('cameraInput').click()">📷 Kamerayla Çek</button>
+        <button class="secondary-dark-btn" onclick="document.getElementById('galleryInput').click()">🖼 Galeriden Seç</button>
+      </div>
+
+      <button class="primary-gold-btn" id="runAiBtn" onclick="executeRealAiTryOn()">
+        ✦ Yapay Zeka ile Üstümde Göster
+      </button>
+
+      <div class="spinner-box" id="aiLoadingBox">
+        <div class="loader-ring"></div>
+        <strong style="display:block; color:var(--gold-soft); margin-bottom:4px;">Yapay Zeka Kıyafeti Giydiriyor...</strong>
+        <small style="color:var(--text-soft);">Kumaş kıvrımları, ışık ve vücut duruşu işleniyor (10–20 sn)</small>
+      </div>
+
+      <div class="tryon-result-box" id="aiResultContainer">
+        <img id="aiGeneratedImg" src="" alt="AI Sonuç" />
+      </div>
+
+      <div id="aiResultActions" style="display:none; flex-direction:column; gap:10px;">
+        <a id="downloadAiImgBtn" href="#" download="sahinler-menswear-ai.png" class="secondary-dark-btn" style="display:grid; place-items:center; text-decoration:none;">
+          ⬇ Fotoğrafı Telefona Kaydet
+        </a>
+        <button class="primary-gold-btn" onclick="closeModal('aiTryOnModal')">Beden Seç ve Sepete Ekle</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sepet Modalı -->
+  <div class="modal-wrap" id="cartModal" onclick="if(event.target===this) closeModal('cartModal')">
+    <div class="modal-panel">
+      <div class="modal-top">
+        <h3 style="font-size:1.2rem; font-weight:800;">Alışveriş Sepetim</h3>
+        <button class="modal-close" onclick="closeModal('cartModal')">&times;</button>
+      </div>
+
+      <div id="cartItemsList"></div>
+
+      <div id="checkoutArea" style="display:none; margin-top:16px;">
+        <div style="display:flex; gap:8px; margin-bottom:12px;">
+          <input type="text" id="promoCodeInput" class="form-box" style="margin:0;" placeholder="İndirim Kodu (SAHINLER10)" />
+          <button class="secondary-dark-btn" style="width:120px;" onclick="applyDiscount()">Uygula</button>
+        </div>
+
+        <div class="pay-switch">
+          <div class="pay-choice active" id="payCodBtn" onclick="choosePayment('cod')">Kapıda Ödeme</div>
+          <div class="pay-choice" id="payEftBtn" onclick="choosePayment('eft')">Havale / EFT (-%5)</div>
+        </div>
+
+        <div class="summary-card" id="cartSummaryCard"></div>
+
+        <input type="text" id="custFullname" class="form-box" placeholder="Adınız Soyadınız *" />
+        <input type="tel" id="custPhoneInput" class="form-box" placeholder="Telefon Numaranız (05XX...) *" />
+        <textarea id="custAddrInput" class="form-box" style="height:78px; padding-top:12px;" placeholder="Açık Teslimat Adresiniz (İl / İlçe / Mahalle) *"></textarea>
+
+        <button class="primary-gold-btn" onclick="sendOrderToWhatsApp()">WhatsApp ile Siparişi Tamamla</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-msg" id="toastNotify"></div>
+
+  <script>
+    const STORE = {
+      name: "Şahinler Menswear",
+      whatsapp: "905520704121",
+      phoneDisplay: "+90 552 070 41 21",
+      address: "Kartaltepe Mah. Süvari Cad. No: 2B, Küçükçekmece / İstanbul",
+      instagram: "https://www.instagram.com/sahinlermenswear?cplk=Nmlod3h2ZHdpYnJk",
+      freeShippingAt: 3500,
+      shippingCost: 99,
+      coupons: { "SAHINLER10": 0.10, "VIP15": 0.15 }
+    };
+
+    function handleImgError(img) {
+      img.onerror = null;
+      img.src = "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(`
+        <svg xmlns='http://www.w3.org/2000/svg' width='600' height='700' viewBox='0 0 600 700'>
+          <rect width='600' height='700' fill='#16161d'/>
+          <text x='300' y='340' text-anchor='middle' fill='#d4af37' font-family='Georgia, serif' font-size='38' font-weight='bold' letter-spacing='5'>ŞAHİNLER</text>
+          <text x='300' y='385' text-anchor='middle' fill='#a1a1aa' font-family='sans-serif' font-size='18' letter-spacing='4'>MENSWEAR</text>
+        </svg>
+      `);
+    }
+
+    const PRODUCTS = [
+      // MONT
+      { id: 101, name: "Şahinler Noir Kaz Tüyü Puffer Mont", category: "Mont", tag: "ATELIER", aiDesc: "Black luxury down puffer winter jacket", price: 3890, oldPrice: 4850, fabric: "Su İtici Ripstop & Kaz Tüyü", fit: "Modern Regular", desc: "-15°C soğuğa dayanıklı yüksek dolumlu kaz tüyü yalıtım ve mat metal fermuar detayları.", colors: [{ name: "Siyah", hex: "#121216", img: "https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=800&q=80" }, { name: "Antrasit", hex: "#3f3f46", img: "https://images.unsplash.com/photo-1544923246-77307dd654cb?w=800&q=80" }], sizes: ["S", "M", "L", "XL", "XXL"] },
+      { id: 102, name: "Şahinler Alpine Termal Şişme Mont", category: "Mont", tag: "KIŞ SERİSİ", aiDesc: "Olive quilted thermal winter puffer coat", price: 3490, oldPrice: 4290, fabric: "Rüzgar Geçirmez Teknik Kumaş", fit: "Regular Fit", desc: "Yüksek koruyucu dik yaka, gizli polar cep astarı ve ultra hafif gövde yapısı.", colors: [{ name: "Haki Yeşil", hex: "#365314", img: "https://images.unsplash.com/photo-1544923246-77307dd654cb?w=800&q=80" }], sizes: ["S", "M", "L", "XL", "XXL"] },
+      { id: 103, name: "Şahinler Milan Kaşe & Yün Palto Mont", category: "Mont", tag: "LÜKS KESİM", aiDesc: "Camel tailored wool overcoat", price: 4290, oldPrice: 5200, fabric: "%70 İtalyan Yünü & Kaşe", fit: "Tailored Fit", desc: "Takım elbise ve triko kazaklar üzerinde kusursuz duruş sağlayan kruvaze düğmeli kaşe mont.", colors: [{ name: "Deve Tüyü", hex: "#b48a5a", img: "https://images.unsplash.com/photo-1539533018447-63fcce2678e3?w=800&q=80" }], sizes: ["S", "M", "L", "XL", "XXL"] },
+      { id: 104, name: "Şahinler Arctic Kürklü Kapüşonlu Parka", category: "Mont", tag: "SOĞUK İKLİM", aiDesc: "Heavy winter hooded parka jacket", price: 4590, oldPrice: 5690, fabric: "Teflon Kaplama Kanvas", fit: "Relaxed Fit", desc: "Çıkarılabilir yoğun kürklü kapüşon, belden ayarlanabilir büzgü ve 6 cepli tasarım.", colors: [{ name: "Gece Laciverti", hex: "#1e293b", img: "https://images.unsplash.com/photo-1544923246-77307dd654cb?w=800&q=80" }], sizes: ["S", "M", "L", "XL", "XXL"] },
+      { id: 105, name: "Şahinler Monogram Parlak Siyah Puffer", category: "Mont", tag: "LIMITED", aiDesc: "Glossy black streetwear puffer jacket", price: 3990, oldPrice: 4900, fabric: "Lake Parlak Naylon", fit: "Boxy Fit", desc: "Sokak modasının ikonik parlak dokusu ve çift yönlü metal fermuar.", colors: [{ name: "Parlak Siyah", hex: "#09090b", img: "https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=800&q=80" }], sizes: ["S", "M", "L", "XL", "XXL"] },
+
+      // CEKET
+      { id: 201, name: "Şahinler İtalyan Kesim Kruvaze Blazer", category: "Ceket", tag: "EN ÇOK SATAN", aiDesc: "Black double breasted tailored blazer jacket", price: 2990, oldPrice: 3750, fabric: "Dokulu Viskon & Yün", fit: "Slim Tailored", desc: "Keskin omuz vatkaları, altın tonlu metal düğmeler ve hem jean hem kumaş pantolon uyumu.", colors: [{ name: "Siyah", hex: "#121216", img: "https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=800&q=80" }, { name: "Taş Beji", hex: "#d6cbb8", img: "https://images.unsplash.com/photo-1593030761757-71fae45fa0e7?w=800&q=80" }], sizes: ["S", "M", "L", "XL", "XXL"] },
+      { id: 202, name: "Şahinler VIP Jakarlı Bomber Ceket", category: "Ceket", tag: "VIP KOLEKSİYON", aiDesc: "Luxury designer bomber jacket", price: 3690, oldPrice: 4590, fabric: "İpek Dokulu Jakar & Saten Astar", fit: "Regular Bomber", desc: "Manşet ve bel kısmında şeritli ribana detayları, özel dokuma monogram yüzey.", colors: [{ name: "Siyah & Altın", hex: "#18181b", img: "https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=800&q=80" }], sizes: ["S", "M", "L", "XL", "XXL"] },
+      { id: 203, name: "Şahinler Süet Dokulu Harrington Ceket", category: "Ceket", tag: "YENİ SEZON", aiDesc: "Brown suede harrington jacket", price: 2790, oldPrice: 3490, fabric: "Mikro Süet & Pamuk Astar", fit: "Regular Fit", desc: "Yumuşak dokunuşlu lüks süet yüzey ve zamansız minimalist silüet.", colors: [{ name: "Taba Kahve", hex: "#78350f", img: "https://images.unsplash.com/photo-1520975954732-35dd22299614?w=800&q=80" }], sizes: ["S", "M", "L", "XL", "XXL"] },
+      { id: 204, name: "Şahinler Selvedge Ham Denim Trucker Ceket", category: "Ceket", tag: "DENİM SERİ", aiDesc: "Indigo raw denim trucker jacket", price: 2390, oldPrice: 2990, fabric: "14 Oz Ağır Japon Denimi", fit: "Boxy Fit", desc: "Kontrast tütün rengi dikişler ve formunu koruyan kalın denim dokusu.", colors: [{ name: "Koyu İndigo", hex: "#1e3a8a", img: "https://images.unsplash.com/photo-1576871337622-98d48d1cf531?w=800&q=80" }], sizes: ["S", "M", "L", "XL", "XXL"] },
+      { id: 205, name: "Şahinler Ekose Yünlü Overshirt Ceket", category: "Ceket", tag: "MEVSİMLİK", aiDesc: "Checked wool overshirt jacket", price: 2290, oldPrice: 2850, fabric: "Fırçalanmış Yün Karışımı", fit: "Relaxed Fit", desc: "Tişört ve kapüşonlu üzerine katmanlı giyim için ideal kalın gömlek ceket.", colors: [{ name: "Antrasit Ekose", hex: "#3f3f46", img: "https://images.unsplash.com/photo-1593030761757-71fae45fa0e7?w=800&q=80" }], sizes: ["S", "M", "L", "XL", "XXL"] },
+
+      // DERİ
+      { id: 301, name: "Şahinler Milan Hakiki Kuzu Derisi Biker Ceket", category: "Deri", tag: "%100 HAKİKİ DERİ", aiDesc: "Black genuine leather biker jacket", price: 5490, oldPrice: 6890, fabric: "%100 İşlenmiş Kuzu Derisi", fit: "Slim Fit", desc: "Asimetrik gümüş fermuarlar ve nefes alan saten iç astarıyla ikonik biker ceket.", colors: [{ name: "Jet Siyah", hex: "#09090b", img: "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=800&q=80" }], sizes: ["S", "M", "L", "XL", "XXL"] },
+      { id: 302, name: "Şahinler Minimalist Hakim Yaka Deri Ceket", category: "Deri", tag: "ATELIER DERİ", aiDesc: "Minimalist black leather racer jacket", price: 4990, oldPrice: 6200, fabric: "Yumuşak Nappa Deri", fit: "Modern Regular", desc: "Gereksiz detaylardan arındırılmış sade ve asil çizgiler.", colors: [{ name: "Siyah", hex: "#121216", img: "https://images.unsplash.com/photo-1520975954732-35dd22299614?w=800&q=80" }], sizes: ["S", "M", "L", "XL", "XXL"] },
+      { id: 303, name: "Şahinler Vintage Eskitme Deri Aviator Ceket", category: "Deri", tag: "KOLEKSİYONER", aiDesc: "Brown vintage leather aviator jacket", price: 5890, oldPrice: 7200, fabric: "Ağır Eskitme Dana Derisi", fit: "Boxy Fit", desc: "El işçiliği vintage renk geçişleriyle karakterli pilot ceket.", colors: [{ name: "Konyak Kahve", hex: "#7c2d12", img: "https://images.unsplash.com/photo-1520975954732-35dd22299614?w=800&q=80" }], sizes: ["S", "M", "L", "XL", "XXL"] },
+      { id: 304, name: "Şahinler Deri Gömlek Ceket (Leather Overshirt)", category: "Deri", tag: "TREND", aiDesc: "Matte black leather overshirt", price: 4690, oldPrice: 5790, fabric: "İnce Mat Kuzu Derisi", fit: "Regular Fit", desc: "Hem tek başına gömlek hem ceket olarak kullanılabilen çok yönlü parça.", colors: [{ name: "Mat Siyah", hex: "#18181b", img: "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=800&q=80" }], sizes: ["S", "M", "L", "XL", "XXL"] },
+      { id: 305, name: "Şahinler Uzun Deri Trençkot", category: "Deri", tag: "LIMITED", aiDesc: "Long black leather trench coat", price: 6490, oldPrice: 7990, fabric: "1. Sınıf Tam Sırçalı Deri", fit: "Tailored Uzun", desc: "Diz hizasında görkemli kesim ve kemerli bel yapısı.", colors: [{ name: "Siyah", hex: "#09090b", img: "https://images.unsplash.com/photo-1520975954732-35dd22299614?w=800&q=80" }], sizes: ["S", "M", "L", "XL", "XXL"] },
+
+      // KAPÜŞONLU
+      { id: 401, name: "Şahinler Sovereign 480GSM Ağır Kapüşonlu", category: "Kapüşonlu", tag: "480 GSM", aiDesc: "Heavyweight black oversized hoodie", price: 1790, oldPrice: 2290, fabric: "%100 Organik 3 İplik Şardonlu", fit: "Boxy Oversize", desc: "Dik duran çift katmanlı kapüşon ve solma yapmayan yüksek gramajlı pamuk.", colors: [{ name: "Siyah", hex: "#111115", img: "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=800&q=80" }, { name: "Krem", hex: "#e7e5e4", img: "https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?w=800&q=80" }], sizes: ["S", "M", "L", "XL", "XXL"] },
+      { id: 402, name: "Şahinler Gold Kabartma Monogram Hoodie", category: "Kapüşonlu", tag: "VIP SERİ", aiDesc: "Black luxury monogram hoodie", price: 1950, oldPrice: 2450, fabric: "460 GSM Compact Penye", fit: "Relaxed Fit", desc: "Göğüs merkezinde kabartma amblem ve metal uçlu kordon.", colors: [{ name: "Kömür Siyah", hex: "#18181b", img: "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=800&q=80" }], sizes: ["S", "M", "L", "XL", "XXL"] },
+      { id: 403, name: "Şahinler Tam Fermuarlı Heavy Zip Hoodie", category: "Kapüşonlu", tag: "GÜNLÜK LÜKS", aiDesc: "Grey heavyweight zip up hoodie", price: 1890, oldPrice: 2390, fabric: "450 GSM Şardonlu Pamuk", fit: "Regular Boxy", desc: "Çift yönlü YKK metal fermuar ve kalın ribana manşet detayları.", colors: [{ name: "Melanj Gri", hex: "#71717a", img: "https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?w=800&q=80" }], sizes: ["S", "M", "L", "XL", "XXL"] },
+      { id: 404, name: "Şahinler Acid-Wash Eskitme Sokak Kapüşonlu", category: "Kapüşonlu", tag: "STREETWEAR", aiDesc: "Charcoal washed streetwear hoodie", price: 1850, oldPrice: 2300, fabric: "Özel Yıkamalı %100 Pamuk", fit: "Oversize", desc: "Özel taş yıkama tekniği ve düşük omuz kesimi.", colors: [{ name: "Füme Yıkama", hex: "#3f3f46", img: "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=800&q=80" }], sizes: ["S", "M", "L", "XL", "XXL"] },
+      { id: 405, name: "Şahinler Ekru Minimalist Atelier Hoodie", category: "Kapüşonlu", tag: "YENİ", aiDesc: "Cream beige minimalist hoodie", price: 1750, oldPrice: 2190, fabric: "440 GSM Yumuşak Pamuk", fit: "Relaxed Fit", desc: "Ceket ve trençkotların içinde temiz ve sofistike bir katman oluşturur.", colors: [{ name: "Ekru / Kum", hex: "#f5f5f4", img: "https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?w=800&q=80" }], sizes: ["S", "M", "L", "XL", "XXL"] },
+
+      // KAZAK
+      { id: 501, name: "Şahinler Kaşmir Dokulu Balıkçı Yaka Kazak", category: "Kazak", tag: "KLASİK LÜKS", aiDesc: "Black cashmere turtleneck sweater", price: 1690, oldPrice: 2150, fabric: "Kaşmir & Merinos Yünü", fit: "Slim Fit", desc: "Blazer ve deri ceketlerin altında kusursuz duran ipeksi triko doku.", colors: [{ name: "Siyah", hex: "#121216", img: "https://images.unsplash.com/photo-1614975059251-992f11792b9f?w=800&q=80" }, { name: "Krem", hex: "#e7e5e4", img: "https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=800&q=80" }], sizes: ["S", "M", "L", "XL", "XXL"] },
+      { id: 502, name: "Şahinler Yarım Fermuarlı Polo Triko Kazak", category: "Kazak", tag: "OLD MONEY", aiDesc: "Navy quarter zip knit sweater", price: 1890, oldPrice: 2390, fabric: "%100 İnce Örgü Pamuk Triko", fit: "Regular Fit", desc: "Old Money stilinin vazgeçilmez parçası; metal fermuarlı yaka.", colors: [{ name: "Lacivert", hex: "#1e3a8a", img: "https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=800&q=80" }], sizes: ["S", "M", "L", "XL", "XXL"] },
+      { id: 503, name: "Şahinler Kalın Saç Örgülü Yün Kazak", category: "Kazak", tag: "KIŞ SEÇKİSİ", aiDesc: "Cream cable knit wool sweater", price: 1990, oldPrice: 2490, fabric: "Ağır Örgü Yün", fit: "Relaxed Fit", desc: "Üç boyutlu geleneksel saç örgü dokulu sıcak tutan lüks kazak.", colors: [{ name: "Kırık Beyaz", hex: "#fafaf9", img: "https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=800&q=80" }], sizes: ["S", "M", "L", "XL", "XXL"] },
+      { id: 504, name: "Şahinler Fitilli Bisiklet Yaka İtalyan Triko", category: "Kazak", tag: "ITALIAN STYLE", aiDesc: "Charcoal ribbed crew neck knit sweater", price: 1590, oldPrice: 1990, fabric: "Esnek Fitilli Viskon Triko", fit: "Slim Fit", desc: "Vücut hatlarını zarifçe saran ince fitilli dokuma.", colors: [{ name: "Antrasit", hex: "#27272a", img: "https://images.unsplash.com/photo-1614975059251-992f11792b9f?w=800&q=80" }], sizes: ["S", "M", "L", "XL", "XXL"] },
+      { id: 505, name: "Şahinler Şal Yaka Düğmeli Hırka Kazak", category: "Kazak", tag: "ATELIER", aiDesc: "Brown shawl collar knit cardigan", price: 2190, oldPrice: 2750, fabric: "Kalın Yün Triko", fit: "Regular Fit", desc: "Gömlek veya tişört üzerine ceket alternatifi şal yaka hırka.", colors: [{ name: "Kahve", hex: "#451a03", img: "https://images.unsplash.com/photo-1576566588028-4147f3842f27?w=800&q=80" }], sizes: ["S", "M", "L", "XL", "XXL"] },
+
+      // GÖMLEK
+      { id: 601, name: "Şahinler İtalyan Yaka %100 Keten Gömlek", category: "Gömlek", tag: "NEFES ALAN", aiDesc: "White Italian linen button down shirt", price: 1590, oldPrice: 1990, fabric: "%100 Saf Avrupa Keteni", fit: "Regular Fit", desc: "Doğal dokulu hafif keten kumaş ve sedef düğmeler.", colors: [{ name: "Beyaz", hex: "#ffffff", img: "https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=800&q=80" }], sizes: ["S", "M", "L", "XL", "XXL"] },
+      { id: 602, name: "Şahinler Saten Dokulu Siyah Gece Gömleği", category: "Gömlek", tag: "GECE & DAVET", aiDesc: "Black satin dress shirt", price: 1750, oldPrice: 2190, fabric: "Dökümlü İpek-Saten Viskon", fit: "Modern Relaxed", desc: "Işığı zarifçe kıran mat-saten dokusu ve gizli düğme patı.", colors: [{ name: "Siyah", hex: "#09090b", img: "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=800&q=80" }], sizes: ["S", "M", "L", "XL", "XXL"] },
+      { id: 603, name: "Şahinler Ağır Oxford Düğmeli Yaka Gömlek", category: "Gömlek", tag: "SMART CASUAL", aiDesc: "Sky blue oxford button down shirt", price: 1490, oldPrice: 1890, fabric: "%100 Kalın Oxford Pamuk", fit: "Regular Fit", desc: "Kolay ütülenen tok pamuk dokuma.", colors: [{ name: "Gök Mavisi", hex: "#93c5fd", img: "https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=800&q=80" }], sizes: ["S", "M", "L", "XL", "XXL"] },
+      { id: 604, name: "Şahinler Çizgili Poplin Atelier Gömlek", category: "Gömlek", tag: "YENİ SEZON", aiDesc: "Striped poplin dress shirt", price: 1550, oldPrice: 1950, fabric: "İnce İplik Poplin Pamuk", fit: "Relaxed Fit", desc: "Dikey ince çizgileriyle modern kesimli poplin gömlek.", colors: [{ name: "Beyaz / Lacivert", hex: "#1e3a8a", img: "https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=800&q=80" }], sizes: ["S", "M", "L", "XL", "XXL"] },
+      { id: 605, name: "Şahinler Kadife Fitilli Kışlık Gömlek", category: "Gömlek", tag: "KIŞ DOKUSU", aiDesc: "Burgundy corduroy overshirt", price: 1690, oldPrice: 2100, fabric: "İnce Fitilli Kadife", fit: "Regular Fit", desc: "Soğuk havalarda tişört üzerinde ceket şıklığı sunar.", colors: [{ name: "Bordo", hex: "#7f1d1d", img: "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=800&q=80" }], sizes: ["S", "M", "L", "XL", "XXL"] },
+
+      // EŞOFMAN
+      { id: 701, name: "Şahinler Tech-Fleece Çift Parça Eşofman Takımı", category: "Eşofman", tag: "TAKIM SET", aiDesc: "Black tech fleece tracksuit top", price: 2790, oldPrice: 3490, fabric: "Scuba Interlock & Pamuk", fit: "Atletik Regular", desc: "Fermuarlı üst ve daralan paça alt parçadan oluşan yüksek performans takımı.", colors: [{ name: "Siyah", hex: "#121216", img: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=800&q=80" }], sizes: ["S", "M", "L", "XL", "XXL"] },
+      { id: 702, name: "Şahinler 460GSM Heavyweight Eşofman Altı", category: "Eşofman", tag: "AĞIR GRAMAJ", aiDesc: null, price: 1450, oldPrice: 1850, fabric: "%100 3 İplik Şardonlu Pamuk", fit: "Relaxed Düz Paça", desc: "Sneakerların üzerine kusursuz dökülen geniş paça kesimi.", colors: [{ name: "Siyah", hex: "#09090b", img: "https://images.unsplash.com/photo-1552902865-b72c031ac5ea?w=800&q=80" }], sizes: ["S", "M", "L", "XL", "XXL"] },
+      { id: 703, name: "Şahinler Yan Şeritli Lüks Eşofman Takımı", category: "Eşofman", tag: "VIP TASARIM", aiDesc: "Luxury striped track jacket", price: 3190, oldPrice: 3990, fabric: "Parlak Triko & Pamuk Astar", fit: "Modern Fit", desc: "Kol ve bacak yanlarında dokuma şerit detayları ve altın fermuar uçları.", colors: [{ name: "Siyah & Krem", hex: "#18181b", img: "https://images.unsplash.com/photo-1578681994506-b8f463449011?w=800&q=80" }], sizes: ["S", "M", "L", "XL", "XXL"] },
+      { id: 704, name: "Şahinler Cargo Cepli Jogger Eşofman Altı", category: "Eşofman", tag: "SOKAK STİLİ", aiDesc: null, price: 1550, oldPrice: 1950, fabric: "Likralı Gabardin & Pamuk", fit: "Tapered Jogger", desc: "Körüklü yan kargo cepler ve ayarlanabilir paça stoperleri.", colors: [{ name: "Haki", hex: "#3f6212", img: "https://images.unsplash.com/photo-1552902865-b72c031ac5ea?w=800&q=80" }], sizes: ["S", "M", "L", "XL", "XXL"] },
+      { id: 705, name: "Şahinler Velour Kadife Lüks Takım", category: "Eşofman", tag: "LIMITED", aiDesc: "Black velour luxury track jacket", price: 2990, oldPrice: 3690, fabric: "Yumuşak Kadife Velour", fit: "Relaxed Fit", desc: "Işıltılı kadife dokusuyla üst düzey konfor.", colors: [{ name: "Gece Siyahı", hex: "#09090b", img: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=800&q=80" }], sizes: ["S", "M", "L", "XL", "XXL"] },
+
+      // PANTOLON
+      { id: 801, name: "Şahinler İtalyan Pilili Kumaş Pantolon", category: "Pantolon", tag: "EN ÇOK SATAN", aiDesc: null, price: 1890, oldPrice: 2390, fabric: "Likralı Yün Karışımlı Kumaş", fit: "Tapered Relaxed", desc: "Ön kısmında çift pile detayı ve ütü izini koruyan özel dokuma.", colors: [{ name: "Siyah", hex: "#121216", img: "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=800&q=80" }, { name: "Taş Beji", hex: "#d6cbb8", img: "https://images.unsplash.com/photo-1473966968600-fa801b869a1a?w=800&q=80" }], sizes: ["S", "M", "L", "XL", "XXL"] },
+      { id: 802, name: "Şahinler Selvedge Slim-Straight Jean", category: "Pantolon", tag: "DENİM", aiDesc: null, price: 1790, oldPrice: 2250, fabric: "%99 Pamuk %1 Elastan Denim", fit: "Slim Straight", desc: "Diz yapmayan tok denim dokusu ve özel yıkama tonu.", colors: [{ name: "Koyu İndigo", hex: "#1e3a8a", img: "https://images.unsplash.com/photo-1542272604-787c3835535d?w=800&q=80" }], sizes: ["S", "M", "L", "XL", "XXL"] },
+      { id: 803, name: "Şahinler Baggy Parachute Kargo Pantolon", category: "Pantolon", tag: "STREETWEAR", aiDesc: null, price: 1950, oldPrice: 2450, fabric: "Hafif Su İtici Ripstop", fit: "Baggy Wide", desc: "Diz pileli ergonomik kesim ve ayarlanabilir paça lastikleri.", colors: [{ name: "Siyah", hex: "#09090b", img: "https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=800&q=80" }], sizes: ["S", "M", "L", "XL", "XXL"] },
+      { id: 804, name: "Şahinler Esnek Bel Chino Kanvas Pantolon", category: "Pantolon", tag: "GÜNLÜK ŞIKLIK", aiDesc: null, price: 1650, oldPrice: 2090, fabric: "Şeftali Tüylü Pamuk Kanvas", fit: "Slim Fit", desc: "Gün boyu şehir temposunda konfor sunan esnek chino pantolon.", colors: [{ name: "Kum Beji", hex: "#c2b280", img: "https://images.unsplash.com/photo-1473966968600-fa801b869a1a?w=800&q=80" }], sizes: ["S", "M", "L", "XL", "XXL"] },
+      { id: 805, name: "Şahinler Bağcıklı Keten Yaz & Bahar Pantolonu", category: "Pantolon", tag: "RAHAT KESİM", aiDesc: null, price: 1690, oldPrice: 2150, fabric: "Keten & Pamuk Karışımı", fit: "Relaxed Fit", desc: "Ferah nefes alan doğal keten dokusu.", colors: [{ name: "Ekru", hex: "#f5f5f4", img: "https://images.unsplash.com/photo-1473966968600-fa801b869a1a?w=800&q=80" }], sizes: ["S", "M", "L", "XL", "XXL"] },
+
+      // SPOR AYAKKABI
+      { id: 901, name: "Nike Air Force 1 '07 Triple White", category: "Spor Ayakkabı", tag: "İKONİK", aiDesc: null, price: 4290, oldPrice: 4990, fabric: "1. Sınıf Sırçalı Deri & Air Taban", fit: "Tam Kalıp (40-45)", desc: "Air yastıklamalı kalın orta taban ve bembeyaz pürüzsüz deri saya.", colors: [{ name: "Tam Beyaz", hex: "#ffffff", img: "https://images.unsplash.com/photo-1549298916-b41d501d3772?w=800&q=80" }], sizes: ["40", "41", "42", "43", "44", "45"] },
+      { id: 902, name: "Nike Dunk Low Retro Panda Black/White", category: "Spor Ayakkabı", tag: "EN ÇOK SATAN", aiDesc: null, price: 4490, oldPrice: 5290, fabric: "Yumuşak Deri Saya & Kauçuk Taban", fit: "Tam Kalıp (40-45)", desc: "Siyah ve beyazın zamansız kontrastı ve dolgulu bilek yakası.", colors: [{ name: "Siyah / Beyaz", hex: "#18181b", img: "https://images.unsplash.com/photo-1600185365483-26d7a4cc7519?w=800&q=80" }], sizes: ["40", "41", "42", "43", "44", "45"] },
+      { id: 903, name: "New Balance 9060 Rain Cloud Grey", category: "Spor Ayakkabı", tag: "TREND MODEL", aiDesc: null, price: 5290, oldPrice: 6190, fabric: "Domuz Süeti & Nefes Alan File", fit: "Tam Kalıp (40-45)", desc: "ABZORB ve SBS çift yoğunluklu yastıklama teknolojisi.", colors: [{ name: "Yağmur Grisi", hex: "#9ca3af", img: "https://images.unsplash.com/photo-1539185441755-769473a23570?w=800&q=80" }], sizes: ["40", "41", "42", "43", "44", "45"] },
+      { id: 904, name: "Nike Air Jordan 1 High OG Crimson", category: "Spor Ayakkabı", tag: "KOLEKSİYON", aiDesc: null, price: 5890, oldPrice: 6890, fabric: "Tam Sırçalı Deri & Air-Sole", fit: "Tam Kalıp (40-45)", desc: "Yüksek bilekli klasik basketbol mirası ve kontrast renk blokları.", colors: [{ name: "Kırmızı / Siyah", hex: "#dc2626", img: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&q=80" }], sizes: ["40", "41", "42", "43", "44", "45"] },
+      { id: 905, name: "New Balance 550 White & Vintage Green", category: "Spor Ayakkabı", tag: "RETRO COURT", aiDesc: null, price: 4690, oldPrice: 5490, fabric: "Delikli Deri & Mikrofiber", fit: "Tam Kalıp (40-45)", desc: "80'lerin basketbol sahalarından ilham alan retro silüet.", colors: [{ name: "Beyaz / Yeşil", hex: "#166534", img: "https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?w=800&q=80" }], sizes: ["40", "41", "42", "43", "44", "45"] },
+      { id: 906, name: "Nike Air Max Plus TN Triple Black", category: "Spor Ayakkabı", tag: "TUNED AIR", aiDesc: null, price: 5190, oldPrice: 5990, fabric: "Sentetik Kafes & Tuned Air", fit: "Tam Kalıp (40-45)", desc: "Agresif dalga kafes yapısı ve görünür Tuned Air üniteleri.", colors: [{ name: "Triple Black", hex: "#09090b", img: "https://images.unsplash.com/photo-1491553895911-0055eca6402d?w=800&q=80" }], sizes: ["40", "41", "42", "43", "44", "45"] },
+
+      // KLASİK AYAKKABI
+      { id: 1001, name: "Şahinler Horsebit Hakiki Deri Loafer", category: "Klasik Ayakkabı", tag: "İTALYAN EL İŞÇİLİĞİ", aiDesc: null, price: 3690, oldPrice: 4490, fabric: "%100 Dana Derisi & Kösele Taban", fit: "Tam Kalıp (40-45)", desc: "Ön kısmında altın tonlu metal gem tokası ve yumuşak deri iç astar.", colors: [{ name: "Siyah Deri", hex: "#09090b", img: "https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?w=800&q=80" }], sizes: ["40", "41", "42", "43", "44", "45"] },
+      { id: 1002, name: "Şahinler Milan Süet Püsküllü Tassel Loafer", category: "Klasik Ayakkabı", tag: "OLD MONEY", aiDesc: null, price: 3490, oldPrice: 4250, fabric: "İtalyan Dana Süeti", fit: "Tam Kalıp (40-45)", desc: "Keten ve pilili kumaş pantolonların en şık tamamlayıcısı.", colors: [{ name: "Taba Süet", hex: "#92400e", img: "https://images.unsplash.com/photo-1533867617858-e7b97e060509?w=800&q=80" }], sizes: ["40", "41", "42", "43", "44", "45"] },
+      { id: 1003, name: "Şahinler Mayfair El Yapımı Deri Chelsea Bot", category: "Klasik Ayakkabı", tag: "SONBAHAR / KIŞ", aiDesc: null, price: 3990, oldPrice: 4890, fabric: "Açma Dana Derisi & Kaymaz Taban", fit: "Tam Kalıp (40-45)", desc: "Yan elastik panelleri sayesinde kolay giyilen klasik Chelsea bot.", colors: [{ name: "Siyah", hex: "#121216", img: "https://images.unsplash.com/photo-1638247025967-b4e38f787b76?w=800&q=80" }], sizes: ["40", "41", "42", "43", "44", "45"] },
+      { id: 1004, name: "Şahinler Double Monk Strap Tokalı Ayakkabı", category: "Klasik Ayakkabı", tag: "PRESTİJ", aiDesc: null, price: 3790, oldPrice: 4590, fabric: "El Boyaması Patina Deri", fit: "Tam Kalıp (40-45)", desc: "Çift metal tokalı sofistike tasarım ve ortopedik deri tabanlık.", colors: [{ name: "Konyak Patina", hex: "#7c2d12", img: "https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?w=800&q=80" }], sizes: ["40", "41", "42", "43", "44", "45"] },
+      { id: 1005, name: "Şahinler Oxford Rugan Siyah Smokin Ayakkabısı", category: "Klasik Ayakkabı", tag: "GECE & ÖZEL GÜN", aiDesc: null, price: 3590, oldPrice: 4390, fabric: "Parlak Rugan Dana Derisi", fit: "Tam Kalıp (40-45)", desc: "Düğün ve resmi davetler için ayna parlaklığında Oxford kalıbı.", colors: [{ name: "Rugan Siyah", hex: "#09090b", img: "https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?w=800&q=80" }], sizes: ["40", "41", "42", "43", "44", "45"] }
+    ];
+
+    const CATEGORIES = [
+      "Tümü", "Mont", "Ceket", "Deri", "Kapüşonlu", "Kazak", "Gömlek", "Eşofman", "Pantolon", "Spor Ayakkabı", "Klasik Ayakkabı"
+    ];
+
+    let selectedCategory = "Tümü";
+    let viewMode = "shop";
+    let cardColors = {};
+    let favorites = JSON.parse(localStorage.getItem("sahinler_favs_v1") || "[]");
+    let cart = JSON.parse(localStorage.getItem("sahinler_cart_v1") || "[]");
+    let activeCoupon = null;
+    let payType = "cod";
+    let modalItem = { id: null, colorIdx: 0, size: null };
+    let tryOnState = { productId: null, userBase64: null };
+
+    function init() {
+      PRODUCTS.forEach(p => { cardColors[p.id] = 0; });
+      restoreCustomer();
+      renderCategories();
+      renderCatalog();
+      updateHeaderCounts();
+    }
+
+    function renderCategories() {
+      document.getElementById("categoryTabs").innerHTML = CATEGORIES.map(cat => {
+        const count = cat === "Tümü" ? PRODUCTS.length : PRODUCTS.filter(p => p.category === cat).length;
+        const isActive = viewMode === "shop" && selectedCategory === cat;
+        return `<button class="cat-pill ${isActive ? 'active' : ''}" onclick="selectCategory('${cat}')">${cat} <span style="opacity:0.75; font-size:0.8rem;">(${count})</span></button>`;
+      }).join("");
+    }
+
+    function selectCategory(cat) {
+      viewMode = "shop";
+      selectedCategory = cat;
+      document.getElementById("dockShop").classList.add("active");
+      document.getElementById("dockFav").classList.remove("active");
+      renderCategories();
+      renderCatalog();
+    }
+
+    function switchView(mode) {
+      viewMode = mode;
+      document.getElementById("dockShop").classList.toggle("active", mode === "shop");
+      document.getElementById("dockFav").classList.toggle("active", mode === "fav");
+      renderCategories();
+      renderCatalog();
+    }
+
+    function resetCatalog() {
+      document.getElementById("searchBox").value = "";
+      document.getElementById("sortBox").value = "default";
+      selectCategory("Tümü");
+    }
+
+    function renderCatalog() {
+      const search = document.getElementById("searchBox").value.trim().toLowerCase();
+      const sort = document.getElementById("sortBox").value;
+
+      let list = PRODUCTS.filter(p => {
+        if (viewMode === "fav" && !favorites.includes(p.id)) return false;
+        if (viewMode === "shop" && selectedCategory !== "Tümü" && p.category !== selectedCategory) return false;
+        if (search) {
+          return p.name.toLowerCase().includes(search) || p.category.toLowerCase().includes(search) || p.fabric.toLowerCase().includes(search);
+        }
+        return true;
+      });
+
+      if (sort === "asc") list.sort((a, b) => a.price - b.price);
+      if (sort === "desc") list.sort((a, b) => b.price - a.price);
+
+      document.getElementById("currentHeading").textContent = viewMode === "fav" ? "Favori Ürünlerim" : (selectedCategory === "Tümü" ? "Tüm Koleksiyon" : selectedCategory);
+      document.getElementById("currentTotalLabel").textContent = `${list.length} Ürün`;
+
+      const feed = document.getElementById("productsFeed");
+      if (list.length === 0) {
+        feed.innerHTML = `<div style="text-align:center; padding:50px 16px; color:var(--text-soft); font-size:1rem;">Gösterilecek ürün bulunamadı.</div>`;
+        return;
+      }
+
+      feed.innerHTML = list.map(p => {
+        const cIdx = cardColors[p.id] || 0;
+        const col = p.colors[cIdx];
+        const isFav = favorites.includes(p.id);
+
+        return `
+          <article class="item-card">
+            <div class="item-img-box" onclick="openDetail(${p.id})">
+              <img src="${col.img}" alt="${p.name}" loading="lazy" onerror="handleImgError(this)" />
+              <span class="item-tag">${p.tag}</span>
+              ${p.aiDesc ? `<span class="ai-badge">✦ AI Üstünde Dene</span>` : ""}
+              <button class="item-fav ${isFav ? 'active' : ''}" onclick="toggleFavorite(event, ${p.id})">${isFav ? '♥' : '♡'}</button>
+            </div>
+            <div class="item-info">
+              <div class="item-cat-line">
+                <span class="item-cat">${p.category}</span>
+                <span class="item-fit-tag">${p.fit}</span>
+              </div>
+              <h3 class="item-name" onclick="openDetail(${p.id})">${p.name}</h3>
+              <div class="item-swatches">
+                ${p.colors.map((c, idx) => `<span class="color-dot ${idx === cIdx ? 'active' : ''}" style="background:${c.hex};" onclick="setCardColor(event, ${p.id}, ${idx})"></span>`).join("")}
+                <span style="font-size:0.82rem; color:var(--text-soft); margin-left:4px;">${col.name}</span>
+              </div>
+              <div class="item-price-box">
+                <span class="item-price">${formatTL(p.price)}</span>
+                ${p.oldPrice ? `<span class="item-old-price">${formatTL(p.oldPrice)}</span>` : ""}
+              </div>
+              <button class="item-action-btn" onclick="openDetail(${p.id})">İncele &amp; Beden Seç</button>
+            </div>
+          </article>
+        `;
+      }).join("");
+    }
+
+    function setCardColor(e, id, idx) {
+      e.stopPropagation();
+      cardColors[id] = idx;
+      renderCatalog();
+    }
+
+    function toggleFavorite(e, id) {
+      e.stopPropagation();
+      const idx = favorites.indexOf(id);
+      if (idx > -1) {
+        favorites.splice(idx, 1);
+        showToast("Favorilerden çıkarıldı");
+      } else {
+        favorites.push(id);
+        showToast("Favorilere eklendi ♥");
+      }
+      localStorage.setItem("sahinler_favs_v1", JSON.stringify(favorites));
+      updateHeaderCounts();
+      renderCatalog();
+    }
+
+    // Ürün Detay Modalı
+    function openDetail(id) {
+      const p = PRODUCTS.find(x => x.id === id);
+      if (!p) return;
+      modalItem = { id: p.id, colorIdx: cardColors[p.id] || 0, size: null };
+      renderDetailModal();
+      document.getElementById("detailModal").classList.add("open");
+    }
+
+    function renderDetailModal() {
+      const p = PRODUCTS.find(x => x.id === modalItem.id);
+      const col = p.colors[modalItem.colorIdx];
+      const isShoe = p.category === "Spor Ayakkabı" || p.category === "Klasik Ayakkabı";
+
+      document.getElementById("detailModalContent").innerHTML = `
+        <div class="modal-top">
+          <span style="font-size:0.85rem; font-weight:800; color:var(--gold); letter-spacing:1px;">${p.category.toUpperCase()}</span>
+          <button class="modal-close" onclick="closeModal('detailModal')">&times;</button>
+        </div>
+
+        <div class="detail-photo">
+          <img src="${col.img}" alt="${p.name}" onerror="handleImgError(this)" />
+        </div>
+
+        ${p.aiDesc ? `
+          <button class="ai-tryon-trigger" onclick="openAiTryOn(${p.id})">
+            ✦ AI ile Üstünde Dene (Kameradan Çek / Yükle)
+          </button>
+        ` : ""}
+
+        <h2 style="font-size:1.35rem; font-weight:800; line-height:1.3; margin-bottom:8px;">${p.name}</h2>
+        <div class="item-price-box" style="margin-bottom:12px;">
+          <span class="item-price" style="font-size:1.5rem; color:var(--gold-soft);">${formatTL(p.price)}</span>
+          ${p.oldPrice ? `<span class="item-old-price" style="font-size:1.05rem;">${formatTL(p.oldPrice)}</span>` : ""}
+        </div>
+
+        <p style="font-size:0.95rem; color:#d4d4d8; line-height:1.55;">${p.desc}</p>
+
+        <div class="detail-specs">
+          <div class="spec-tile"><small>Materyal &amp; Kumaş</small><strong>${p.fabric}</strong></div>
+          <div class="spec-tile"><small>Kalıp Bilgisi</small><strong>${p.fit}</strong></div>
+        </div>
+
+        <div style="margin-bottom:16px;">
+          <div style="font-size:0.92rem; font-weight:700; margin-bottom:8px;">Renk Seçimi: <span style="color:var(--gold-soft);">${col.name}</span></div>
+          <div class="item-swatches" style="gap:12px;">
+            ${p.colors.map((c, idx) => `<span class="color-dot ${idx === modalItem.colorIdx ? 'active' : ''}" style="width:28px; height:28px; background:${c.hex};" onclick="changeDetailColor(${idx})"></span>`).join("")}
+          </div>
+        </div>
+
+        <div class="size-label">
+          <span>${isShoe ? "Ayak Numarası Seçin" : "Beden Seçin"}</span>
+          <span style="color:var(--gold-soft);">${modalItem.size ? "Seçilen: " + modalItem.size : "Lütfen dokunun"}</span>
+        </div>
+
+        <div class="size-buttons-grid" id="sizeButtonsWrap">
+          ${p.sizes.map(s => `<button type="button" class="size-tap-btn ${modalItem.size === s ? 'selected' : ''}" onclick="tapSize('${s}')">${s}</button>`).join("")}
+        </div>
+
+        <div class="inline-size-finder">
+          <div class="finder-title">✦ Kendi Bedenini Bul</div>
+          ${!isShoe ? `
+            <div class="finder-inputs">
+              <div class="finder-input-group">
+                <label for="inlineHeight">Boyunuz (cm)</label>
+                <input type="number" id="inlineHeight" class="finder-input" placeholder="Örn: 180" oninput="autoCalculateSize()" />
+              </div>
+              <div class="finder-input-group">
+                <label for="inlineWeight">Kilonuz (kg)</label>
+                <input type="number" id="inlineWeight" class="finder-input" placeholder="Örn: 75" oninput="autoCalculateSize()" />
+              </div>
+            </div>
+          ` : `
+            <div class="finder-input-group">
+              <label for="inlineFootCm">Ayak Uzunluğunuz (cm)</label>
+              <input type="number" step="0.5" id="inlineFootCm" class="finder-input" placeholder="Örn: 26.5" oninput="autoCalculateShoeSize()" />
+            </div>
+          `}
+          <div class="finder-output" id="inlineFinderOutput"></div>
+        </div>
+
+        <div class="detail-ctas">
+          <button class="primary-gold-btn" onclick="confirmAddCart()">Sepete Ekle • ${formatTL(p.price)}</button>
+          <button class="secondary-dark-btn" onclick="askOnWhatsApp()">WhatsApp ile Ürün Hakkında Sor</button>
+        </div>
+      `;
+    }
+
+    function changeDetailColor(idx) {
+      modalItem.colorIdx = idx;
+      cardColors[modalItem.id] = idx;
+      renderDetailModal();
+      renderCatalog();
+    }
+
+    function tapSize(size) {
+      modalItem.size = size;
+      document.querySelectorAll("#sizeButtonsWrap .size-tap-btn").forEach(btn => {
+        btn.classList.toggle("selected", btn.textContent.trim() === size);
+      });
+      const labelSpan = document.querySelector(".size-label span:last-child");
+      if (labelSpan) labelSpan.textContent = "Seçilen: " + size;
+    }
+
+    function autoCalculateSize() {
+      const h = Number(document.getElementById("inlineHeight").value);
+      const w = Number(document.getElementById("inlineWeight").value);
+      const out = document.getElementById("inlineFinderOutput");
+      if (!h || !w || h < 140 || h > 220 || w < 40 || w > 160) {
+        out.style.display = "none";
+        return;
+      }
+      let rec = "L";
+      if (w < 63 && h <= 175) rec = "S";
+      else if (w < 74 && h <= 181) rec = "M";
+      else if (w < 85 && h <= 187) rec = "L";
+      else if (w < 97 && h <= 193) rec = "XL";
+      else rec = "XXL";
+
+      out.style.display = "block";
+      out.innerHTML = `${h} cm boy ve ${w} kg için önerilen bedeniniz: <strong>${rec}</strong> (Seçildi)`;
+      tapSize(rec);
+    }
+
+    function autoCalculateShoeSize() {
+      const cm = Number(document.getElementById("inlineFootCm").value);
+      const out = document.getElementById("inlineFinderOutput");
+      if (!cm || cm < 23 || cm > 31) {
+        out.style.display = "none";
+        return;
+      }
+      let num = "42";
+      if (cm <= 25.5) num = "40";
+      else if (cm <= 26.2) num = "41";
+      else if (cm <= 27.0) num = "42";
+      else if (cm <= 27.7) num = "43";
+      else if (cm <= 28.5) num = "44";
+      else num = "45";
+
+      out.style.display = "block";
+      out.innerHTML = `${cm} cm ayak ölçüsü için uygun numaranız: <strong>${num}</strong> (Seçildi)`;
+      tapSize(num);
+    }
+
+    // =========================================================================
+    // GERÇEK AI ÜSTÜNDE DENE (MOBİL FOTOĞRAF SIKIŞTIRMA + IDM-VTON)
+    // =========================================================================
+    function openAiTryOn(productId) {
+      const p = PRODUCTS.find(x => x.id === productId);
+      if (!p) return;
+      const cIdx = cardColors[p.id] || 0;
+      tryOnState = { productId: p.id, userBase64: null };
+
+      document.getElementById("tryOnProductName").textContent = p.name;
+      document.getElementById("tryOnGarmentPreview").src = p.colors[cIdx].img;
+      document.getElementById("userPhotoSlot").innerHTML = `
+        <span style="font-size:1.8rem; margin-bottom:6px;">📸</span>
+        <strong style="font-size:0.85rem;">Senin Fotoğrafın</strong>
+        <small style="font-size:0.75rem; color:var(--text-soft);">Önden net duruş önerilir</small>
+      `;
+      document.getElementById("aiResultContainer").style.display = "none";
+      document.getElementById("aiResultActions").style.display = "none";
+      document.getElementById("aiLoadingBox").style.display = "none";
+
+      document.getElementById("aiTryOnModal").classList.add("open");
+    }
+
+    function compressPhotoFile(file, maxDim = 960) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const img = new Image();
+          img.onload = () => {
+            let w = img.width;
+            let h = img.height;
+            if (w > maxDim || h > maxDim) {
+              if (w > h) {
+                h = Math.round((h * maxDim) / w);
+                w = maxDim;
+              } else {
+                w = Math.round((w * maxDim) / h);
+                h = maxDim;
+              }
+            }
+            const canvas = document.createElement("canvas");
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0, w, h);
+            resolve(canvas.toDataURL("image/jpeg", 0.88));
+          };
+          img.onerror = reject;
+          img.src = ev.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function handleUserPhotoSelect(event) {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      try {
+        const optimizedBase64 = await compressPhotoFile(file, 960);
+        tryOnState.userBase64 = optimizedBase64;
+        document.getElementById("userPhotoSlot").innerHTML = `<img src="${optimizedBase64}" alt="Müşteri Fotoğrafı" />`;
+        showToast("Fotoğraf hazır! Şimdi 'Yapay Zeka ile Üstümde Göster' butonuna basın");
+      } catch (err) {
+        showToast("Fotoğraf okunamadı, lütfen başka bir fotoğraf seçin");
+      }
+    }
+
+    async function executeRealAiTryOn() {
+      if (!tryOnState.userBase64) {
+        showToast("Lütfen önce kamerayla fotoğraf çekin veya galeriden seçin");
+        return;
+      }
+
+      const p = PRODUCTS.find(x => x.id === tryOnState.productId);
+      const cIdx = cardColors[p.id] || 0;
+      const garmentImgUrl = p.colors[cIdx].img;
+
+      const btn = document.getElementById("runAiBtn");
+      const loader = document.getElementById("aiLoadingBox");
+      const resBox = document.getElementById("aiResultContainer");
+      const resActions = document.getElementById("aiResultActions");
+
+      btn.disabled = true;
+      btn.style.opacity = "0.6";
+      loader.style.display = "block";
+      resBox.style.display = "none";
+      resActions.style.display = "none";
+
+      try {
+        const response = await fetch("/api/tryon", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            personImageBase64: tryOnState.userBase64,
+            garmentImageUrl: garmentImgUrl,
+            garmentDescription: p.aiDesc
+          })
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || "AI işlemi tamamlanamadı.");
+        }
+
+        document.getElementById("aiGeneratedImg").src = data.resultUrl;
+        document.getElementById("downloadAiImgBtn").href = data.resultUrl;
+        resBox.style.display = "block";
+        resActions.style.display = "flex";
+        showToast("Yapay zeka giydirme tamamlandı ✦");
+      } catch (err) {
+        showToast(err.message);
+      } finally {
+        btn.disabled = false;
+        btn.style.opacity = "1";
+        loader.style.display = "none";
+      }
+    }
+
+    // Sepet İşlemleri
+    function confirmAddCart() {
+      if (!modalItem.size) {
+        showToast("Lütfen önce beden veya numara seçin");
+        return;
+      }
+      const p = PRODUCTS.find(x => x.id === modalItem.id);
+      const col = p.colors[modalItem.colorIdx];
+      const existing = cart.find(i => i.id === p.id && i.size === modalItem.size && i.color === col.name);
+
+      if (existing) existing.qty += 1;
+      else cart.push({ id: p.id, name: p.name, price: p.price, color: col.name, img: col.img, size: modalItem.size, qty: 1 });
+
+      saveCart();
+      closeModal("detailModal");
+      showToast(`${p.name} (${modalItem.size}) sepete eklendi`);
+    }
+
+    function openCartModal() {
+      renderCart();
+      document.getElementById("cartModal").classList.add("open");
+    }
+
+    function choosePayment(type) {
+      payType = type;
+      document.getElementById("payCodBtn").classList.toggle("active", type === "cod");
+      document.getElementById("payEftBtn").classList.toggle("active", type === "eft");
+      renderCart();
+    }
+
+    function applyDiscount() {
+      const code = document.getElementById("promoCodeInput").value.trim().toUpperCase();
+      if (STORE.coupons[code]) {
+        activeCoupon = code;
+        showToast(`${code} indirim kodu uygulandı`);
+        renderCart();
+      } else {
+        showToast("Geçersiz kod (Deneyin: SAHINLER10)");
+      }
+    }
+
+    function renderCart() {
+      const listEl = document.getElementById("cartItemsList");
+      const checkoutEl = document.getElementById("checkoutArea");
+
+      if (cart.length === 0) {
+        listEl.innerHTML = `<div style="text-align:center; padding:40px 12px; color:var(--text-soft); font-size:1rem;">Sepetiniz şu an boş.</div>`;
+        checkoutEl.style.display = "none";
+        return;
+      }
+
+      checkoutEl.style.display = "block";
+      listEl.innerHTML = cart.map((item, idx) => `
+        <div class="cart-row">
+          <img src="${item.img}" alt="${item.name}" onerror="handleImgError(this)" />
+          <div style="flex:1;">
+            <div style="font-size:0.98rem; font-weight:700;">${item.name}</div>
+            <div style="font-size:0.85rem; color:var(--text-soft);">Renk: ${item.color} • Beden: <strong style="color:var(--gold-soft);">${item.size}</strong></div>
+            <div style="font-size:1rem; font-weight:800; color:var(--gold-soft); margin-top:4px;">${formatTL(item.price * item.qty)}</div>
+          </div>
+          <div class="qty-bar">
+            <button onclick="updateQty(${idx}, -1)">−</button>
+            <span style="font-weight:800;">${item.qty}</span>
+            <button onclick="updateQty(${idx}, 1)">+</button>
+          </div>
+        </div>
+      `).join("");
+
+      const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
+      const couponCut = activeCoupon ? Math.round(subtotal * STORE.coupons[activeCoupon]) : 0;
+      const eftCut = payType === "eft" ? Math.round((subtotal - couponCut) * 0.05) : 0;
+      const shipFee = subtotal >= STORE.freeShippingAt ? 0 : STORE.shippingCost;
+      const total = subtotal - couponCut - eftCut + shipFee;
+
+      document.getElementById("cartSummaryCard").innerHTML = `
+        <div class="summary-line"><span>Ara Toplam</span><span>${formatTL(subtotal)}</span></div>
+        ${couponCut > 0 ? `<div class="summary-line" style="color:var(--green);"><span>Kupon (${activeCoupon})</span><span>-${formatTL(couponCut)}</span></div>` : ""}
+        ${eftCut > 0 ? `<div class="summary-line" style="color:var(--green);"><span>Havale / EFT İndirimi (%5)</span><span>-${formatTL(eftCut)}</span></div>` : ""}
+        <div class="summary-line"><span>Kargo</span><span>${shipFee === 0 ? "ÜCRETSİZ" : formatTL(shipFee)}</span></div>
+        <div class="summary-total"><span>Toplam Tutar</span><span style="color:var(--gold-soft);">${formatTL(total)}</span></div>
+      `;
+    }
+
+    function updateQty(idx, delta) {
+      cart[idx].qty += delta;
+      if (cart[idx].qty <= 0) cart.splice(idx, 1);
+      saveCart();
+      renderCart();
+    }
+
+    function sendOrderToWhatsApp() {
+      const name = document.getElementById("custFullname").value.trim();
+      const phone = document.getElementById("custPhoneInput").value.trim();
+      const addr = document.getElementById("custAddrInput").value.trim();
+
+      if (!name || !phone || !addr) {
+        showToast("Lütfen Ad Soyad, Telefon ve Adres alanlarını doldurun");
+        return;
+      }
+
+      localStorage.setItem("sahinler_cust_v1", JSON.stringify({ name, phone, addr }));
+
+      const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
+      const couponCut = activeCoupon ? Math.round(subtotal * STORE.coupons[activeCoupon]) : 0;
+      const eftCut = payType === "eft" ? Math.round((subtotal - couponCut) * 0.05) : 0;
+      const shipFee = subtotal >= STORE.freeShippingAt ? 0 : STORE.shippingCost;
+      const total = subtotal - couponCut - eftCut + shipFee;
+
+      const lines = cart.map((i, idx) =>
+        `${idx + 1}. *${i.name}* (${i.color} / Beden: *${i.size}*) x${i.qty} = ${formatTL(i.price * i.qty)}`
+      ).join("\n");
+
+      const msg =
+`*${STORE.name.toUpperCase()} — YENİ SİPARİŞ*
+
+${lines}
+
+*Ara Toplam:* ${formatTL(subtotal)}${couponCut > 0 ? `\n*Kupon (${activeCoupon}):* -${formatTL(couponCut)}` : ""}${eftCut > 0 ? `\n*Havale İndirimi:* -${formatTL(eftCut)}` : ""}
+*Kargo:* ${shipFee === 0 ? "ÜCRETSİZ" : formatTL(shipFee)}
+*ÖDENECEK TOPLAM:* *${formatTL(total)}*
+*Ödeme Şekli:* ${payType === "eft" ? "Havale / EFT" : "Kapıda Ödeme"}
+
+*Müşteri Bilgileri:*
+• Ad Soyad: ${name}
+• Telefon: ${phone}
+• Adres: ${addr}`;
+
+      window.open(`https://wa.me/${STORE.whatsapp}?text=${encodeURIComponent(msg)}`, "_blank");
+    }
+
+    function askOnWhatsApp() {
+      const p = PRODUCTS.find(x => x.id === modalItem.id);
+      const col = p.colors[modalItem.colorIdx];
+      const msg = `Merhaba *${STORE.name}*, *${p.name}* (${col.name}${modalItem.size ? ", Beden: " + modalItem.size : ""}) hakkında bilgi almak istiyorum.`;
+      window.open(`https://wa.me/${STORE.whatsapp}?text=${encodeURIComponent(msg)}`, "_blank");
+    }
+
+    function openWhatsAppSupport() {
+      const msg = `Merhaba *${STORE.name}*, ürünleriniz ve beden seçimi hakkında bilgi almak istiyorum.`;
+      window.open(`https://wa.me/${STORE.whatsapp}?text=${encodeURIComponent(msg)}`, "_blank");
+    }
+
+    function saveCart() {
+      localStorage.setItem("sahinler_cart_v1", JSON.stringify(cart));
+      updateHeaderCounts();
+    }
+
+    function updateHeaderCounts() {
+      document.getElementById("hdrCartCount").textContent = cart.reduce((s, i) => s + i.qty, 0);
+      document.getElementById("hdrFavCount").textContent = favorites.length;
+    }
+
+    function restoreCustomer() {
+      const saved = JSON.parse(localStorage.getItem("sahinler_cust_v1") || "null");
+      if (saved) {
+        document.getElementById("custFullname").value = saved.name || "";
+        document.getElementById("custPhoneInput").value = saved.phone || "";
+        document.getElementById("custAddrInput").value = saved.addr || "";
+      }
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.remove("open");
+    }
+
+    function formatTL(num) {
+      return num.toLocaleString("tr-TR") + " ₺";
+    }
+
+    let tTimer;
+    function showToast(text) {
+      const el = document.getElementById("toastNotify");
+      el.textContent = text;
+      el.classList.add("show");
+      clearTimeout(tTimer);
+      tTimer = setTimeout(() => el.classList.remove("show"), 2800);
+    }
+
+    init();
+  </script>
+</body>
+</html>
